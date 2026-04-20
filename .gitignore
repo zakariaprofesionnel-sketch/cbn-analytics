@@ -1,0 +1,48 @@
+# Environnement Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# Fichiers locaux sensibles
+.env
+.env.local
+settings.local.json
+config_local.py
+
+# Données brutes (volumineuses / confidentielles)
+data/raw/
+*.xlsx
+*.xls
+
+# Fichiers lourds non nécessaires au déploiement
+*.pptx
+*.zip
+*.pdf
+rapport_suivre.txt
+CHANGES_SUMMARY.md
+cours_brent.csv
+
+# Cache Streamlit
+.streamlit/secrets.toml
+__pycache__/
+
+# Claude / IDE
+.claude/
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Modèles ML (régénérables via run_ml.py)
+ml/*.pkl
+ml/predictions_test.csv
+
+# Logs
+*.log

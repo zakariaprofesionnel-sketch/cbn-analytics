@@ -1,0 +1,2 @@
+"""Agent IA CBN package."""
+
