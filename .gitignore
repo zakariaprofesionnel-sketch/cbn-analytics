@@ -40,8 +40,7 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-# Modèles ML (régénérables via run_ml.py)
-ml/*.pkl
+# Modèles ML — predictions_test exclues, modèles inclus
 ml/predictions_test.csv
 
 # Logs

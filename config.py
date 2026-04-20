@@ -56,3 +56,20 @@ HORIZON_DEFAUT = 6
 
 # Proportion train/test
 TEST_YEAR = 2018  # Année réservée pour le test
+
+
+
+"""DB_CONFIG = {
+    "host": "localhost",
+    "port": "5432",
+    "database": "cbn_analytics",
+    "user": "postgres",
+    "password": "postgres",
+    "client_encoding": "UTF-8",
+}
+
+# String de connexion pour SQLAlchemy
+DB_URL = (
+    f"postgresql://{DB_CONFIG['user']}:{DB_CONFIG['password']}"
+    f"@{DB_CONFIG['host']}:{DB_CONFIG['port']}/{DB_CONFIG['database']}"
+)"""

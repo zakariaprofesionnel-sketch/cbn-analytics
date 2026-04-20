@@ -25,35 +25,29 @@ from config import *
 
 def creer_base_si_inexistante():
     """
-    Crée la base de données 'cbn_analytics' si elle n'existe pas.
-    Se connecte d'abord à la base 'postgres' par défaut.
+    Sur un hébergeur distant (Neon, Railway…) la base existe déjà.
+    Cette fonction ne fait rien dans ce cas.
     """
     print("[LOAD] Vérification de la base de données...")
-    
-    conn = psycopg2.connect(
-        host=DB_CONFIG['host'],
-        port=DB_CONFIG['port'],
-        user=DB_CONFIG['user'],
-        password=DB_CONFIG['password'],
-        dbname='postgres'
-    )
-    conn.autocommit = True
-    cur = conn.cursor()
-    
-    # Vérifier si la base existe
-    cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (DB_CONFIG['database'],))
-    exists = cur.fetchone()
-    
-    if not exists:
-        cur.execute(sql.SQL("CREATE DATABASE {}").format(
-            sql.Identifier(DB_CONFIG['database'])
-        ))
-        print(f"[LOAD] ✓ Base '{DB_CONFIG['database']}' créée")
-    else:
-        print(f"[LOAD] ✓ Base '{DB_CONFIG['database']}' existe déjà")
-    
-    cur.close()
-    conn.close()
+    if "localhost" not in DB_URL and "127.0.0.1" not in DB_URL:
+        print("[LOAD] ✓ Base distante détectée — création ignorée (déjà existante)")
+        return
+    # Connexion locale : tenter de créer la base si absente
+    try:
+        conn = psycopg2.connect(DB_URL.rsplit("/", 1)[0] + "/postgres")
+        conn.autocommit = True
+        cur = conn.cursor()
+        dbname = DB_URL.rsplit("/", 1)[-1].split("?")[0]
+        cur.execute("SELECT 1 FROM pg_database WHERE datname = %s", (dbname,))
+        if not cur.fetchone():
+            cur.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(dbname)))
+            print(f"[LOAD] ✓ Base '{dbname}' créée")
+        else:
+            print(f"[LOAD] ✓ Base '{dbname}' existe déjà")
+        cur.close()
+        conn.close()
+    except Exception as e:
+        print(f"[LOAD] Avertissement création base : {e}")
 
 
 def executer_schema():
@@ -75,7 +69,7 @@ def executer_schema():
     with open(schema_path, 'r', encoding='utf-8') as f:
         schema_sql = f.read()
     
-    conn = psycopg2.connect(**DB_CONFIG)
+    conn = psycopg2.connect(DB_URL)
     conn.autocommit = True
     cur = conn.cursor()
     cur.execute(schema_sql)

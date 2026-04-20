@@ -161,13 +161,18 @@ def generer_dim_produit(df_ventes: pd.DataFrame) -> pd.DataFrame:
     print("[TRANSFORM] Génération dim_produit...")
     
     # On prend tous les produits du fichier original (pas seulement gasoil)
-    df_prod = df_ventes[['CODPRD', 'LIBPRD1', 'TYPPRD', 'CATPRD']].drop_duplicates()
+    cols = ['CODPRD', 'LIBPRD1', 'TYPPRD']
+    if 'CATPRD' in df_ventes.columns:
+        cols.append('CATPRD')
+    df_prod = df_ventes[cols].drop_duplicates()
     df_prod = df_prod.rename(columns={
         'CODPRD': 'code_produit',
         'LIBPRD1': 'libelle',
         'TYPPRD': 'type_produit',
         'CATPRD': 'categorie',
     })
+    if 'categorie' not in df_prod.columns:
+        df_prod['categorie'] = 'CARBURANT'
     # Prendre une seule catégorie par produit (la plus fréquente)
     df_prod = df_prod.drop_duplicates(subset=['code_produit'], keep='first')
     
