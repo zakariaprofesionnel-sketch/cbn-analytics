@@ -1,59 +1,57 @@
-"""Page Chatbot — Assistant CBN Analytics (rule-based, sans API externe)"""
-import streamlit as st
-import sys
+"""Page Chatbot - Assistant CBN Analytics bilingue, sans API externe."""
+
 import os
+import sys
+
+import streamlit as st
+
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from components.ui import render_navbar, page_header, inject_css
-from chatbot.intent_detector import detect_intent
-from chatbot.entity_extractor import extract_year, extract_month, extract_depot
-from chatbot.query_engine import repondre
+from components.ui import render_navbar, page_header  # noqa: E402
+from chatbot.entity_extractor import extract_depot, extract_month, extract_year  # noqa: E402
+from chatbot.intent_detector import detect_intent, detect_language  # noqa: E402
+from chatbot.query_engine import repondre  # noqa: E402
+
 
 render_navbar("Chatbot")
-page_header("Assistant CBN", "Posez vos questions sur les données de ventes de gasoil")
+page_header("Assistant CBN", "Posez vos questions en francais ou en anglais sur les ventes de gasoil")
 
-# ── Initialisation historique ────────────────────────────────────────────────
 if "chat_messages" not in st.session_state:
     st.session_state["chat_messages"] = [
         {
             "role": "assistant",
             "content": (
                 "Bonjour ! Je suis l'assistant CBN Analytics.\n\n"
-                "Je peux répondre à vos questions sur les **ventes de gasoil** "
-                "(2015–2018) : volumes, prix, dépôts, tendances, cours du Brent…\n\n"
-                "Tapez **aide** pour voir la liste complète."
+                "Je peux repondre a vos questions sur les **ventes de gasoil** "
+                "(2015-2018) : volumes, prix, depots, tendances, cours du Brent.\n\n"
+                "I also understand English. Type **aide** or **help** to see examples."
             ),
         }
     ]
 
-# ── Affichage de l'historique ────────────────────────────────────────────────
 for msg in st.session_state["chat_messages"]:
-    with st.chat_message(msg["role"], avatar="🤖" if msg["role"] == "assistant" else "👤"):
+    with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# ── Saisie utilisateur ───────────────────────────────────────────────────────
-prompt = st.chat_input("Posez votre question ici…")
+prompt = st.chat_input("Posez votre question ici... / Ask your question here...")
 
 if prompt:
-    # Afficher le message utilisateur
     st.session_state["chat_messages"].append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="👤"):
+    with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Traitement
+    lang = detect_language(prompt)
     intent = detect_intent(prompt)
-    year   = extract_year(prompt)
-    month  = extract_month(prompt)
-    depot  = extract_depot(prompt)
-    answer = repondre(intent, year=year, month=month, depot=depot)
+    year = extract_year(prompt)
+    month = extract_month(prompt)
+    depot = extract_depot(prompt)
+    answer = repondre(intent, year=year, month=month, depot=depot, lang=lang)
 
-    # Afficher la réponse
     st.session_state["chat_messages"].append({"role": "assistant", "content": answer})
-    with st.chat_message("assistant", avatar="🤖"):
+    with st.chat_message("assistant"):
         st.markdown(answer)
 
-# ── Bouton reset ─────────────────────────────────────────────────────────────
 st.markdown("---")
 col, _ = st.columns([1, 4])
 with col:
@@ -62,8 +60,8 @@ with col:
             {
                 "role": "assistant",
                 "content": (
-                    "Conversation effacée. Comment puis-je vous aider ?\n\n"
-                    "Tapez **aide** pour voir ce que je sais faire."
+                    "Conversation effacee. Comment puis-je vous aider ?\n\n"
+                    "Tapez **aide** ou **help** pour voir ce que je sais faire."
                 ),
             }
         ]

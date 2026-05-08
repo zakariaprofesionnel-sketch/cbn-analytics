@@ -1,0 +1,8 @@
+{
+  "best_model": "SARIMAX",
+  "train_period": "2015-2016",
+  "test_year": 2017,
+  "final_train_period": "2015-2017",
+  "forecast_start_year": 2018,
+  "selection_rule": "MAPE puis RMSE puis MAE les plus faibles"
+}

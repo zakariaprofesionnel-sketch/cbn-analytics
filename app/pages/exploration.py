@@ -1,4 +1,4 @@
-"""Page Exploration — Donnees brutes et decomposition"""
+"""Page Exploration - Donnees brutes et decomposition."""
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
@@ -9,7 +9,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from components.ui import render_navbar, page_header, section_title, agil_chart_layout, CHART_COLORS
+from components.ui import render_navbar, page_header, section_title, agil_chart_layout, styled_dataframe, CHART_COLORS
 from utils import charger_ventes_mensuelles, charger_ventes_detail, formater_nombre
 from config import BASE_DIR
 
@@ -65,10 +65,10 @@ def build_stats_df(series: pd.Series, label: str) -> pd.DataFrame:
 
 with c1:
     st.markdown("**Quantite livree (m3)**")
-    st.dataframe(build_stats_df(df_f["quantite_m3"], "Valeur"), hide_index=True, use_container_width=True)
+    styled_dataframe(build_stats_df(df_f["quantite_m3"], "Valeur"), hide_index=True)
 with c2:
     st.markdown("**Montant HT (TND)**")
-    st.dataframe(build_stats_df(df_f["montant_ht"], "Valeur"), hide_index=True, use_container_width=True)
+    styled_dataframe(build_stats_df(df_f["montant_ht"], "Valeur"), hide_index=True)
 
 st.markdown("---")
 
@@ -155,7 +155,7 @@ df_affiche = df_f[[
     "montant_ht":    "Montant HT (TND)",
     "prix_unitaire": "Prix unitaire (TND/m3)",
 })
-st.dataframe(df_affiche, use_container_width=True, hide_index=True)
+styled_dataframe(df_affiche, hide_index=True)
 st.caption(
     f"Affichage de {min(nb_lignes, len(df_f))} lignes "
     f"sur {formater_nombre(len(df_f))} au total"

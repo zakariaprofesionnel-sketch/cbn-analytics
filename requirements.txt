@@ -9,4 +9,5 @@ yfinance>=0.2.40,<1
 prophet>=1.1.5,<2
 scikit-learn>=1.4,<2
 scipy>=1.11,<2
+statsmodels>=0.14,<1
 streamlit-option-menu>=0.3,<1

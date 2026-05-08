@@ -15,9 +15,9 @@ Architecture du modèle :
 
 Pipeline :
   1. Charger les ventes mensuelles depuis PostgreSQL
-  2. Entraîner sur 2015-2017, tester sur 2018
+  2. Entraîner sur 2015-2016, tester sur 2017
   3. Évaluer (MAE, RMSE, MAPE, R²)
-  4. Ré-entraîner sur toute la période pour les prévisions futures
+  4. Ré-entraîner sur 2015-2017 pour prévoir 2018
   5. Prévoir N mois avec scénarios de cours pétrole
 """
 
@@ -83,7 +83,7 @@ def preparer_donnees_prophet(df: pd.DataFrame) -> pd.DataFrame:
 
 def entrainer_et_evaluer(df_prophet: pd.DataFrame) -> dict:
     """
-    Entraîne Prophet sur 2015-2017 et évalue sur 2018.
+    Entraîne Prophet sur 2015-2016 et évalue sur 2017.
     
     Returns:
         dict avec : modèle, métriques, prévisions test, composantes
@@ -91,11 +91,11 @@ def entrainer_et_evaluer(df_prophet: pd.DataFrame) -> dict:
     print("[ML] Entraînement du modèle Prophet...")
     
     # Split train/test
-    train = df_prophet[df_prophet['ds'].dt.year < TEST_YEAR].copy()
-    test = df_prophet[df_prophet['ds'].dt.year >= TEST_YEAR].copy()
+    train = df_prophet[df_prophet['ds'].dt.year <= TRAIN_END_YEAR].copy()
+    test = df_prophet[df_prophet['ds'].dt.year == TEST_YEAR].copy()
     
-    print(f"[ML]   Train : {len(train)} mois (2015-2017)")
-    print(f"[ML]   Test  : {len(test)} mois (2018)")
+    print(f"[ML]   Train : {len(train)} mois (2015-{TRAIN_END_YEAR})")
+    print(f"[ML]   Test  : {len(test)} mois ({TEST_YEAR})")
     
     # Configurer Prophet
     model = Prophet(
@@ -133,11 +133,11 @@ def entrainer_et_evaluer(df_prophet: pd.DataFrame) -> dict:
         'R2': round(r2, 4),
     }
     
-    print(f"[ML] ✓ Métriques sur 2018 :")
-    print(f"[ML]   MAE  = {metriques['MAE']:.2f} m³ (erreur absolue moyenne)")
-    print(f"[ML]   RMSE = {metriques['RMSE']:.2f} m³ (erreur quadratique)")
+    print(f"[ML] Metriques Prophet sur {TEST_YEAR} :")
+    print(f"[ML]   MAE  = {metriques['MAE']:.2f} m3 (erreur absolue moyenne)")
+    print(f"[ML]   RMSE = {metriques['RMSE']:.2f} m3 (erreur quadratique)")
     print(f"[ML]   MAPE = {metriques['MAPE']:.2f}% (erreur % moyenne)")
-    print(f"[ML]   R²   = {metriques['R2']:.4f} (qualité d'ajustement)")
+    print(f"[ML]   R2   = {metriques['R2']:.4f} (qualite d'ajustement)")
     
     return {
         'model': model,
@@ -148,13 +148,14 @@ def entrainer_et_evaluer(df_prophet: pd.DataFrame) -> dict:
     }
 
 
-def entrainer_modele_final(df_prophet: pd.DataFrame) -> Prophet:
+def entrainer_modele_final(df_prophet: pd.DataFrame, end_year: int = 2017) -> Prophet:
     """
-    Ré-entraîne le modèle sur TOUTES les données (2015-2018)
-    pour les prévisions futures.
+    Re-entraine le modele sur les donnees disponibles jusqu'a end_year.
     """
-    print("[ML] Entraînement du modèle final (2015-2018 complet)...")
+    print(f"[ML] Entrainement du modele final Prophet (2015-{end_year})...")
     
+    df_train = df_prophet[df_prophet["ds"].dt.year <= end_year].copy()
+
     model = Prophet(
         yearly_seasonality=True,
         weekly_seasonality=False,
@@ -164,12 +165,12 @@ def entrainer_modele_final(df_prophet: pd.DataFrame) -> Prophet:
         interval_width=0.95,
     )
     model.add_regressor('cours_brent', mode='multiplicative')
-    model.fit(df_prophet)
+    model.fit(df_train)
     
     # Sauvegarder le modèle
     with open(MODEL_PATH, 'wb') as f:
         pickle.dump(model, f)
-    print(f"[ML] ✓ Modèle sauvegardé : {MODEL_PATH}")
+    print(f"[ML] Modele Prophet sauvegarde : {MODEL_PATH}")
     
     return model
 
@@ -206,8 +207,11 @@ def prevoir(
         ).iloc[0, 0]
         engine.dispose()
     
-    # Générer les dates futures
-    derniere_date = pd.Timestamp(DATE_FIN)
+    # Generer les dates futures juste apres la derniere date vue par le modele.
+    try:
+        derniere_date = pd.to_datetime(model.history["ds"]).max()
+    except (AttributeError, KeyError):
+        derniere_date = pd.Timestamp(DATE_FIN)
     dates_futures = pd.date_range(
         start=derniere_date + pd.offsets.MonthBegin(1),
         periods=horizon_mois,

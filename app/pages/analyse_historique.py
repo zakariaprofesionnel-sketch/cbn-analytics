@@ -1,4 +1,4 @@
-"""Page Analyse Historique — Ventes vs Cours du Brent"""
+"""Page Analyse Historique - Ventes vs Cours du Brent."""
 import streamlit as st
 import plotly.graph_objects as go
 import plotly.express as px
@@ -14,7 +14,7 @@ from components.ui import render_navbar, page_header, section_title, agil_chart_
 from utils import charger_ventes_mensuelles, formater_nombre
 
 render_navbar("Analyse")
-page_header("Analyse Historique", "Relation entre les ventes de gasoil et le cours du Brent — 2015 a 2018")
+page_header("Analyse Historique", "Relation entre les ventes de gasoil et le cours du Brent - 2015 a 2018")
 
 # ── Chargement + filtre ──────────────────────────────────────────────────────
 df = charger_ventes_mensuelles()
@@ -107,7 +107,7 @@ if len(df_corr) > 2:
         st.metric("Interpretation", f"{interpretation} ({direction})")
 
     # ── Nuage de points ───────────────────────────────────────────────────────
-    section_title("Nuage de points — Ventes vs Cours")
+    section_title("Nuage de points - Ventes vs Cours")
 
     scatter_kw = dict(
         data_frame=df_corr,

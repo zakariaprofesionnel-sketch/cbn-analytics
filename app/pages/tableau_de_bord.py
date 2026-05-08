@@ -1,4 +1,4 @@
-"""Page Tableau de Bord — KPIs et evolution des ventes"""
+"""Page Tableau de Bord - KPIs et evolution des ventes."""
 import streamlit as st
 import plotly.express as px
 import plotly.graph_objects as go
@@ -12,7 +12,7 @@ from components.ui import render_navbar, page_header, section_title, agil_chart_
 from utils import charger_ventes_mensuelles, formater_nombre
 
 render_navbar("Tableau de Bord")
-page_header("Tableau de Bord", "Indicateurs cles des ventes de gasoil — 2015 a 2018")
+page_header("Tableau de Bord", "Indicateurs cles des ventes de gasoil - 2015 a 2018")
 
 # ── Chargement des données ───────────────────────────────────────────────────
 df_mensuel = charger_ventes_mensuelles()
@@ -132,7 +132,7 @@ fig_saison = go.Figure(go.Bar(
     textposition="outside",
     textfont=dict(size=10, color="#1C1C1C"),
 ))
-layout = agil_chart_layout("Volume moyen par mois — toutes annees confondues (m3)", 380)
+layout = agil_chart_layout("Volume moyen par mois - toutes annees confondues (m3)", 380)
 layout["xaxis"]["type"] = "category"
 layout["showlegend"] = False
 fig_saison.update_layout(**layout)

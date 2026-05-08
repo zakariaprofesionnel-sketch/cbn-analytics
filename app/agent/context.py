@@ -38,7 +38,24 @@ def load_ml_results() -> dict:
     metrics_path = os.path.join(base_path, "metriques.pkl")
     if os.path.exists(metrics_path):
         with open(metrics_path, "rb") as f:
-            ml_results["metrics"] = pickle.load(f)
+            metrics_payload = pickle.load(f)
+            if isinstance(metrics_payload, dict) and "best_model" in metrics_payload:
+                best_model = metrics_payload.get("best_model", "Prophet")
+                ml_results["metrics_all"] = metrics_payload
+                ml_results["best_model"] = best_model
+                ml_results["metrics"] = metrics_payload.get(best_model, {})
+            else:
+                ml_results["metrics"] = metrics_payload
+
+    if "predictions" in ml_results and "best_model" in ml_results:
+        best = str(ml_results["best_model"]).lower()
+        pred_col = f"{best}_prediction_m3"
+        err_col = f"{best}_erreur_abs_m3"
+        predictions = ml_results["predictions"]
+        if pred_col in predictions.columns and "prediction_m3" not in predictions.columns:
+            predictions["prediction_m3"] = predictions[pred_col]
+        if err_col in predictions.columns and "erreur_abs_m3" not in predictions.columns:
+            predictions["erreur_abs_m3"] = predictions[err_col]
 
     return ml_results
 
@@ -79,6 +96,16 @@ def build_agent_context() -> Dict[str, Any]:
             error_mae = _safe_float(df_pred["erreur_abs_m3"].mean())
             if "erreur_m3" in df_pred.columns:
                 error_rmse = _safe_float((df_pred["erreur_m3"] ** 2).mean() ** 0.5)
+        elif not df_pred.empty and "sarimax_erreur_abs_m3" in df_pred.columns:
+            error_mae = _safe_float(df_pred["sarimax_erreur_abs_m3"].mean())
+            if "sarimax_prediction_m3" in df_pred.columns and "reel_m3" in df_pred.columns:
+                err = df_pred["reel_m3"] - df_pred["sarimax_prediction_m3"]
+                error_rmse = _safe_float((err ** 2).mean() ** 0.5)
+        elif not df_pred.empty and "prophet_erreur_abs_m3" in df_pred.columns:
+            error_mae = _safe_float(df_pred["prophet_erreur_abs_m3"].mean())
+            if "prophet_prediction_m3" in df_pred.columns and "reel_m3" in df_pred.columns:
+                err = df_pred["reel_m3"] - df_pred["prophet_prediction_m3"]
+                error_rmse = _safe_float((err ** 2).mean() ** 0.5)
 
     signals = {
         "latest_date": str(pd.to_datetime(latest["date_mois"]).date()),
@@ -107,4 +134,3 @@ def build_agent_context() -> Dict[str, Any]:
     context["ml_results"] = ml_results
 
     return context
-

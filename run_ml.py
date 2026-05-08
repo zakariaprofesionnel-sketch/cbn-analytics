@@ -1,100 +1,146 @@
-"""
-Pipeline ML — CBN Analytics
-=============================
-Script qui entraîne le modèle Prophet et sauvegarde les résultats.
+"""Pipeline ML - comparaison Prophet vs SARIMAX.
 
-Usage :
+Usage:
   python run_ml.py
-
-Pré-requis :
-  - PostgreSQL démarré avec les données chargées (run_etl.py exécuté)
-  - Prophet installé (pip install prophet)
 """
 
-import sys
+import json
 import os
 import pickle
+import sys
 import time
+
 import pandas as pd
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+from config import BASE_DIR, TEST_YEAR, TRAIN_END_YEAR
+from ml.arima_forecast import entrainer_et_evaluer_sarimax, entrainer_modele_final_sarimax
 from ml.forecast import (
     charger_donnees_mensuelles,
-    preparer_donnees_prophet,
     entrainer_et_evaluer,
     entrainer_modele_final,
+    preparer_donnees_prophet,
     prevoir,
 )
-from config import BASE_DIR
+
+
+def _comparison_row(model_name: str, metrics: dict) -> dict:
+    return {
+        "modele": model_name,
+        "MAE": metrics["MAE"],
+        "RMSE": metrics["RMSE"],
+        "MAPE": metrics["MAPE"],
+        "R2": metrics["R2"],
+    }
+
+
+def _choose_best(comparison: pd.DataFrame) -> str:
+    ranked = comparison.sort_values(["MAPE", "RMSE", "MAE"], ascending=True)
+    return str(ranked.iloc[0]["modele"])
 
 
 def run():
     debut = time.time()
-    print("=" * 60)
-    print("  PIPELINE ML — Prévision Gasoil (Prophet)")
-    print("=" * 60)
+    ml_dir = os.path.join(BASE_DIR, "ml")
 
-    # 1. Charger les données mensuelles depuis PostgreSQL
-    print("\n[1/5] Chargement des données mensuelles...")
+    print("=" * 72)
+    print("  PIPELINE ML - Comparaison Prophet vs SARIMAX")
+    print("=" * 72)
+    print(f"  Train : 2015-{TRAIN_END_YEAR}")
+    print(f"  Test  : {TEST_YEAR}")
+
+    print("\n[1/6] Chargement des donnees mensuelles...")
     df = charger_donnees_mensuelles()
-    print(f"       → {len(df)} mois chargés")
+    print(f"       {len(df)} mois charges")
 
-    # 2. Préparer pour Prophet
-    print("\n[2/5] Préparation des données Prophet...")
+    print("\n[2/6] Evaluation Prophet...")
     df_prophet = preparer_donnees_prophet(df)
-    print(f"       → Colonnes : {list(df_prophet.columns)}")
+    resultats_prophet = entrainer_et_evaluer(df_prophet)
 
-    # 3. Entraîner et évaluer (train 2015-2017 / test 2018)
-    print("\n[3/5] Entraînement et évaluation...")
-    resultats = entrainer_et_evaluer(df_prophet)
+    print("\n[3/6] Evaluation SARIMAX...")
+    resultats_sarimax = entrainer_et_evaluer_sarimax(df)
 
-    # Sauvegarder les métriques
-    metrics_path = os.path.join(BASE_DIR, "ml", "metriques.pkl")
-    with open(metrics_path, 'wb') as f:
-        pickle.dump(resultats['metriques'], f)
-    print(f"       Métriques sauvegardées : {metrics_path}")
+    print("\n[4/6] Comparaison des modeles...")
+    comparison = pd.DataFrame(
+        [
+            _comparison_row("Prophet", resultats_prophet["metriques"]),
+            _comparison_row("SARIMAX", resultats_sarimax["metriques"]),
+        ]
+    )
+    best_model = _choose_best(comparison)
+    print(comparison.to_string(index=False))
+    print(f"       Modele retenu : {best_model}")
 
-    # Sauvegarder le comparatif réel vs prédit (période test)
-    comparison_path = os.path.join(BASE_DIR, "ml", "predictions_test.csv")
-    df_comparison = pd.DataFrame({
-        "date_mois": pd.to_datetime(resultats["test"]["ds"]).dt.strftime("%Y-%m-%d"),
-        "reel_m3": resultats["test"]["y"].values,
-        "prediction_m3": resultats["forecast_test"]["yhat"].values,
-        "borne_basse_m3": resultats["forecast_test"]["yhat_lower"].values,
-        "borne_haute_m3": resultats["forecast_test"]["yhat_upper"].values,
-    })
-    df_comparison["erreur_m3"] = df_comparison["reel_m3"] - df_comparison["prediction_m3"]
-    df_comparison["erreur_abs_m3"] = df_comparison["erreur_m3"].abs()
-    df_comparison.to_csv(comparison_path, index=False)
-    print(f"       Comparatif réel/prédit sauvegardé : {comparison_path}")
+    comparison_path = os.path.join(ml_dir, "model_comparison.csv")
+    comparison.to_csv(comparison_path, index=False)
+    print(f"       Comparaison sauvegardee : {comparison_path}")
 
-    # 4. Entraîner le modèle final sur toutes les données
-    print("\n[4/5] Entraînement du modèle final (2015-2018)...")
-    model_final = entrainer_modele_final(df_prophet)
+    best_model_path = os.path.join(ml_dir, "best_model.json")
+    with open(best_model_path, "w", encoding="utf-8") as f:
+        json.dump(
+            {
+                "best_model": best_model,
+                "train_period": f"2015-{TRAIN_END_YEAR}",
+                "test_year": TEST_YEAR,
+                "final_train_period": "2015-2017",
+                "forecast_start_year": 2018,
+                "selection_rule": "MAPE puis RMSE puis MAE les plus faibles",
+            },
+            f,
+            ensure_ascii=False,
+            indent=2,
+        )
+    print(f"       Choix du modele sauvegarde : {best_model_path}")
 
-    # 5. Test de prévision
-    print("\n[5/5] Test de prévision (6 mois, 3 scénarios)...")
-    dernier_cours = float(df['cours_brent_moyen_usd'].iloc[-1])
-    print(f"       Dernier cours Brent : {dernier_cours:.2f} USD/baril")
+    metrics_path = os.path.join(ml_dir, "metriques.pkl")
+    metrics_payload = {
+        "best_model": best_model,
+        "Prophet": resultats_prophet["metriques"],
+        "SARIMAX": resultats_sarimax["metriques"],
+    }
+    with open(metrics_path, "wb") as f:
+        pickle.dump(metrics_payload, f)
+    print(f"       Metriques sauvegardees : {metrics_path}")
 
-    for scenario in ['stable', 'hausse', 'baisse']:
+    predictions_path = os.path.join(ml_dir, "predictions_test.csv")
+    df_predictions = pd.DataFrame(
+        {
+            "date_mois": pd.to_datetime(resultats_prophet["test"]["ds"]).dt.strftime("%Y-%m-%d"),
+            "reel_m3": resultats_prophet["test"]["y"].values,
+            "prophet_prediction_m3": resultats_prophet["forecast_test"]["yhat"].values,
+            "sarimax_prediction_m3": resultats_sarimax["forecast_test"]["yhat"].values,
+        }
+    )
+    df_predictions["prophet_erreur_abs_m3"] = (
+        df_predictions["reel_m3"] - df_predictions["prophet_prediction_m3"]
+    ).abs()
+    df_predictions["sarimax_erreur_abs_m3"] = (
+        df_predictions["reel_m3"] - df_predictions["sarimax_prediction_m3"]
+    ).abs()
+    df_predictions.to_csv(predictions_path, index=False)
+    print(f"       Predictions test sauvegardees : {predictions_path}")
+
+    print("\n[5/6] Entrainement des modeles finaux sur 2015-2017...")
+    prophet_final = entrainer_modele_final(df_prophet, end_year=TEST_YEAR)
+    entrainer_modele_final_sarimax(df, end_year=TEST_YEAR)
+
+    print("\n[6/6] Test prevision Prophet (6 mois, scenarios Brent)...")
+    df_cours_final = df[pd.to_datetime(df["date_mois"]).dt.year <= TEST_YEAR]
+    dernier_cours = float(df_cours_final["cours_brent_moyen_usd"].iloc[-1])
+    for scenario in ["stable", "hausse", "baisse"]:
         forecast = prevoir(
-            model_final,
+            prophet_final,
             horizon_mois=6,
             scenario_cours=scenario,
             dernier_cours=dernier_cours,
         )
-        total = forecast['yhat'].sum()
-        borne_basse = forecast['yhat_lower'].sum()
-        borne_haute = forecast['yhat_upper'].sum()
-        print(f"       Scénario {scenario:>7s} : {total:>10,.0f} m³  "
-              f"[{borne_basse:>10,.0f} — {borne_haute:>10,.0f}]")
+        print(f"       {scenario:>7s} : {forecast['yhat'].sum():>10,.0f} m3")
 
     duree = time.time() - debut
-    print(f"\n{'=' * 60}")
-    print(f"  PIPELINE ML TERMINÉ EN {duree:.1f} SECONDES")
-    print(f"{'=' * 60}")
+    print(f"\n{'=' * 72}")
+    print(f"  PIPELINE ML TERMINE EN {duree:.1f} SECONDES")
+    print(f"{'=' * 72}")
 
 
 if __name__ == "__main__":

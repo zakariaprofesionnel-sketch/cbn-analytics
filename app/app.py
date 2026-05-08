@@ -30,7 +30,6 @@ pg = st.navigation(
     position="hidden",
 )
 
-# Garde d'authentification : toutes les pages sauf Connexion exigent une session active
 if not st.session_state.get("authenticated", False) and pg.title != "Connexion":
     st.switch_page("pages/login.py")
 
